@@ -1,0 +1,348 @@
+{
+  "name": "Shellingford Upload Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "shellingford-upload",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        -160
+      ],
+      "id": "66e00c9e-a288-45ed-a5ab-877982eb7503",
+      "name": "Webhook",
+      "webhookId": "83425ca1-69e4-4acc-825d-d0cd8ba832ec"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        -160
+      ],
+      "id": "a8f7f864-667f-42b8-8968-5af360f9aba4",
+      "name": "Transcribe a recording",
+      "credentials": {
+        "openAiApi": {
+          "id": "IbKHGM0FPKxjGPmT",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5.6-luna",
+          "mode": "list",
+          "cachedResultName": "GPT-5.6-LUNA"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Translate the following Cebuano/Bisaya text into natural English.\n\nRules:\n- Preserve the original meaning.\n- Do not add information.\n- Do not summarize.\n- Keep all details from the original text.\n- If the Bisaya is ambiguous, choose the most likely meaning based on context.\n- Preserve the sequence of events.\n- Return only the English translation.\n- Do not include explanations, notes, or commentary.\n- Each line begins with a timestamp (e.g. \"10:01:05 am\") — keep timestamps exactly as written, unchanged, at the start of each line.\n- Translate only the spoken text that follows each timestamp.\n- Keep the same line breaks and order.\n- Keep a blank line between each timestamped entry, exactly as in the source.\n\nCebuano/Bisaya:\n{{ $json.bisaya_text }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        896,
+        -160
+      ],
+      "id": "8704e9e6-284a-43f0-9879-628a58aa9514",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "IbKHGM0FPKxjGPmT",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const originalItems = $('split').all();\n\nconst lines = items.map((item) => {\n  const text = (item.json.text || '').trim();\n  if (!text) return null;\n\n  const originalIndex = item.pairedItem?.item ?? items.indexOf(item);\n  const recordedAt = originalItems[originalIndex]?.json?.recordedAt;\n\n  const time = recordedAt\n    ? new Date(recordedAt)\n        .toLocaleTimeString('en-US', {\n          hour: 'numeric', minute: '2-digit', second: '2-digit',\n          hour12: true, timeZone: 'Pacific/Auckland'\n        })\n        .toLowerCase()\n    : '';\n\n  return `${time} ${text}`;\n}).filter(Boolean);\n\nconst day = originalItems[0]?.json?.day || '';\n\nreturn [\n  {\n    json: {\n      day,\n      bisaya_text: lines.join('\\n\\n')\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        -160
+      ],
+      "id": "056dfa94-08fc-447a-bbb8-d1c40e8de85f",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "81daa23e-3eb3-40cc-8218-c3fdb4378339",
+              "name": "day",
+              "value": "={{ $('Code in JavaScript1').item.json.day }}",
+              "type": "string"
+            },
+            {
+              "id": "feca9a73-4464-43fb-a9db-3c59b06dec2c",
+              "name": "englishText",
+              "value": "={{ $json.output[0].content[0].text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1248,
+        -160
+      ],
+      "id": "41400d5d-f91d-47fd-8961-6476f5bcd209",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "jsCode": "const day = $input.item.json.body?.day || $input.item.json.day;\nconst binaryKeys = Object.keys($input.item.binary || {});\n\nconst sortedKeys = binaryKeys.sort((a, b) => {\n  const nameA = $input.item.binary[a].fileName || a;\n  const nameB = $input.item.binary[b].fileName || b;\n  return nameA.localeCompare(nameB);\n});\n\nreturn sortedKeys.map(key => {\n  const fileName = $input.item.binary[key].fileName || '';\n  const isoLike = fileName\n    .replace('.m4a', '')\n    .replace(/^(\\d{4}-\\d{2}-\\d{2}T\\d{2})-(\\d{2})-(\\d{2})Z$/, '$1:$2:$3Z');\n  const recordedAt = new Date(isoLike);\n\n  return {\n    json: { day, sourceKey: key, recordedAt: recordedAt.toISOString() },\n    binary: { data: $input.item.binary[key] }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        -160
+      ],
+      "id": "9c0c2e8a-ef5d-49dd-93bc-9b20fc0c8f5f",
+      "name": "split"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://discord.com/api/webhooks/1546385279407882310/RBH4MEbY_TJxtq7Pha7ymVRG1IchaQc_G6KezwolL8V_cLD6MfRGP3OhTOZLbMAq4pnj",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"embeds\": [\n    {\n      \"title\": \"📓 Shellingford — {{ $json.day }}\",\n      \"description\": {{ JSON.stringify($json.journalMarkdown.length > 4000 ? $json.journalMarkdown.slice(0, 4000) + '... (truncated)' : $json.journalMarkdown) }},\n      \"color\": 3066993\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2048,
+        -256
+      ],
+      "id": "7fd777cd-3005-4ae7-b920-f5c9acaf2cb8",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5.6-luna",
+          "mode": "list",
+          "cachedResultName": "GPT-5.6-LUNA"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=You are classifying a personal journal entry against a fixed set of allowed metadata values. You must ONLY choose from the exact values listed below — do not invent new values, do not rephrase them, and preserve exact spelling/hyphenation/casing.\n\ntags: job-search, career, interview, cv, health, finance, social, family, gratitude, goals, win, frustration, coding, ai-learning, skyguyver, bayanbites, msd, programme, recruiter, casual-work\nmood: tired, hopeful, good, low, great, okay, rough, stressed, motivated, calm, thankful, uneasy, worried, overwhelmed, suprise, sad, happy, playful, discourage, annoyed, relief\nevent: birthday, anniversary, christmas, new-year, easter, waitangi-day, church, wedding, funeral, graduation, travel, course, kiefer-lsv-start, msd-job-search-checkin, temple-trip, filipino-sacrament, sabbath-day, dinner-missionaries\ncompany: trimble, police-nz, seequent, tait-communications, datacom, jade-software, partly, phocas, spex-rolleston, younity, beyond, canterbury museum, ryman-healthcare, absolute-it, airways, kordia, kraken, evnex, plexure, pbtech, couchdrop, datanest, transpower, sorted-logistics, oceania-can-group-limited, gun-city-ltd, lumen-limited, xe, pegasus-health, robotron, inland-revenue, big-t, intelliwealth, patriot-systems\npeople: sheryl, kiefer, jairus, family, emma wadsley, lucy graham, kerry bannister, lito flaminiano, kathy moore, earl flamiano, nics gierran, emma salingujay, christine isherwood, allen oommen, linda pettigrew, glen gonzalez, charles han, james dunlop, james hill, gen flaminiano\n\nRules:\n- Select zero or more values per category that genuinely apply. Leave a category empty if nothing clearly matches.\n- For \"rating\", give a single integer 1 (very difficult day) to 5 (great day) reflecting overall emotional tone.\n- Return ONLY valid JSON, no markdown fences, no explanation, exactly this shape:\n{\"tags\": [], \"mood\": [], \"event\": [], \"company\": [], \"people\": [], \"rating\": 3}\n\nJournal entry:\n{{ $json.englishText }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        1472,
+        -160
+      ],
+      "id": "ad8d8350-210c-4259-ae64-420792c077f4",
+      "name": "Generate metadata",
+      "credentials": {
+        "openAiApi": {
+          "id": "IbKHGM0FPKxjGPmT",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let metadata;\ntry {\n  const raw = $json.output[0].content[0].text.trim();\n  const cleaned = raw.replace(/^```json\\s*|```$/g, '').trim();\n  metadata = JSON.parse(cleaned);\n} catch (e) {\n  metadata = { tags: [], mood: [], event: [], company: [], people: [], rating: '' };\n}\n\nconst day = $('Edit Fields').item.json.day;\nconst englishText = $('Edit Fields').item.json.englishText;  // ← this line was the bug\n\nfunction formatList(arr) {\n  return Array.isArray(arr) && arr.length > 0 ? `[${arr.join(', ')}]` : '';\n}\n\nconst frontmatter = [\n  '---',\n  `date: ${day}`,\n  `tags: ${formatList(metadata.tags)}`,\n  `mood: ${formatList(metadata.mood)}`,\n  `company: ${formatList(metadata.company)}`,\n  `event: ${formatList(metadata.event)}`,\n  `people: ${formatList(metadata.people)}`,\n  `rating: ${metadata.rating ?? ''}`,\n  '---'\n].join('\\n');\n\nreturn [{\n  json: {\n    day,\n    journalMarkdown: `${frontmatter}\\n\\n${englishText}`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1824,
+        -160
+      ],
+      "id": "64d5dd97-990d-40af-814e-34943293193a",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "const payload = JSON.stringify({\n    day: $json.day,\n    journalMarkdown: $json.journalMarkdown\n});\nconst encoded = Buffer.from(payload).toString('base64');\nreturn [{\n    json: {\n        command: `echo '${encoded}' | base64 -d > /tmp/shellingford_entry.json && python3 ~/write_journal.py /tmp/shellingford_entry.json`\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2048,
+        -64
+      ],
+      "id": "5a439d1a-cdf4-4a99-97e4-4e39170a2392",
+      "name": "Prepare SSH Command"
+    },
+    {
+      "parameters": {
+        "authentication": "privateKey",
+        "command": "={{ $json.command }}"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        2272,
+        -64
+      ],
+      "id": "5d4046c6-7aad-4d21-98ce-dac38084f14c",
+      "name": "Execute a command",
+      "credentials": {
+        "sshPrivateKey": {
+          "id": "t2LBpsSf2dJypbUl",
+          "name": "SSH Private Key account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "split",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe a recording": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "split": {
+      "main": [
+        [
+          {
+            "node": "Transcribe a recording",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Generate metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate metadata": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare SSH Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare SSH Command": {
+      "main": [
+        [
+          {
+            "node": "Execute a command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "1a8d29d0-1a8b-4609-8cd0-ebdd3a4c3f63",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2517fae6a33dd4d2a79a87b584a49586b09cea2409a46ea601090c00afd3defb"
+  },
+  "nodeGroups": [],
+  "id": "1FJ3K4SyIMv5en8b",
+  "tags": []
+}

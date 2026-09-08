@@ -1,0 +1,12 @@
+# macOS
+.DS_Store
+
+# Editor artifacts
+.vscode/
+.idea/
+
+# Python (in case anything gets tested locally in this repo)
+__pycache__/
+*.pyc
+.env
+venv/
