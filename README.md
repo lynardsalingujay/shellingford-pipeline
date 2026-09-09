@@ -2,6 +2,13 @@
 
 An end-to-end personal system that turns a spoken voice journal in Bisaya/Cebuano into a fully translated, AI-tagged entry in my Obsidian vault — spanning a native iOS app, a cloud automation platform, a home server, and a private network bridge between them.
 
+## Repositories
+
+This project spans two repos, since the iOS app and the automation pipeline are separate concerns:
+
+- **This repo** — the n8n workflow, homelab Python script, and overall architecture documentation
+- **[shellingford-ios](https://github.com/lynardsalingujay/shellingford-ios)** — the native SwiftUI app that does the recording, playback, and upload
+
 ## Overview
 
 Shellingford started as a simple question: could I keep a daily journal in my first language, Bisaya/Cebuano, without the friction of writing in English? It grew into a full pipeline: I speak into a native iPhone app throughout the day; when I upload, the audio is transcribed, translated to English, automatically tagged with metadata (mood, people, companies, events) against a fixed schema, and pushed as a formatted Markdown note directly into my Obsidian journal — which then syncs to every device I own. A Discord notification confirms when it's done.
