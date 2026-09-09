@@ -82,11 +82,12 @@ A few things that came up along the way, which I think show real engineering rat
 - **Timezone bugs across three systems.** The app, n8n, and the server all defaulted to UTC in different spots, which quietly shifted both the calendar day and the displayed time of each entry. Fixed by forcing explicit timezone handling (device-local on iOS, explicit `Pacific/Auckland` in JS) at each boundary rather than trusting defaults.
 - **JSON safety with real, messy text.** Journal entries contain line breaks, quotes, and apostrophes — all of which can silently break hand-built JSON strings. Solved with `JSON.stringify()` at the point of construction rather than manual escaping.
 - **Bridging a private home server into a cloud workflow, without exposing it.** Rather than port-forwarding SSH to the public internet, the Ubuntu server joins Fly.io's private network directly via a WireGuard peer connection — meaning the cloud-hosted automation can reach it over an encrypted tunnel that the home server itself initiates outbound, with no inbound firewall rule needed at all.
-- **SSH key format incompatibility.** n8n's SSH node couldn't parse the modern OpenSSH key format `ssh-keygen` generates by default for ed25519 keys — resolved by generating an RSA key in the older PEM format instead.
+- **SSH key format incompatibility.** n8n's SSH node couldn't parse the modern OpenSSH key format `ssh-keygen` generates by default for ed25519 keys — resolved by generat[118;1:3uing an RSA key in the older PEM format instead.
 - **git and iCloud actively conflict.** Running git commands directly inside an iCloud-synced folder produces intermittent `mmap failed: Resource deadlock avoided` errors, because git's low-level file-mapping collides with iCloud's background sync daemon touching the same files. Worked around by keeping the automated sync as a manual/on-demand step rather than a tight background loop, avoiding the collision window.
 
 ## What's Next
 
+- Migrate the transcription step from `gpt-4o-transcribe` to OpenAI's newer `gpt-transcribe` model (released July 2026) — reports roughly half the word error rate on OpenAI's own multilingual benchmark, and `gpt-4o-transcribe` is slated for deprecation in February 2027. Blocked for now on n8n's built-in OpenAI node not yet listing the new model; likely path is either a manual model-name override once n8n updates its node, or a plain HTTP Request node calling the endpoint directly in the meantime.
 - Apple Watch companion target, using WatchConnectivity to record from the wrist
 - Automating the final Mac-side pull step in a way that's resilient to the iCloud/git conflict above
 - Surfacing transcription/translation history back inside the iOS app for review
